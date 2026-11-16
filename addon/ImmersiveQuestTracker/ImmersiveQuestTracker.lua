@@ -666,8 +666,8 @@ SLASH_IMMERSIVEQUESTTRACKER1 = "/iqt"
 SlashCmdList.IMMERSIVEQUESTTRACKER = function()
   if active then
     local renderer = namespace.UseCustomTracker() and "EllesmereUI Custom Quest Tracker" or "Blizzard Quest Tracker"
-    print("Immersive Quest Tracker has applied the WoW Forever appearance to " .. renderer .. ".")
+    print("Immersive Quest Tracker Skin has applied the WoW Forever appearance to " .. renderer .. ".")
   else
-    print("Immersive Quest Tracker could not find a compatible EllesmereUI Quest Tracker on WoW Forever.")
+    print("Immersive Quest Tracker Skin could not find a compatible EllesmereUI Quest Tracker on WoW Forever.")
   end
 end
