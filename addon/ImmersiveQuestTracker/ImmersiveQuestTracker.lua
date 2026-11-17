@@ -2,7 +2,18 @@ local trackerAddon = "EllesmereUIQuestTracker"
 local eui = EllesmereUI
 local namespace = eui and eui._ModuleNS and eui._ModuleNS[trackerAddon]
 local tracker = namespace and namespace.EQT
+local mergeHeadersSetting = "immersiveQuestTrackerMergeHeaders"
+local borderSetting = "immersiveQuestTrackerBorder"
+local borderStyleSetting = "immersiveQuestTrackerBorderStyle"
+local borderWidthSetting = "immersiveQuestTrackerBorderWidth"
+local borderOffsetSetting = "immersiveQuestTrackerBorderOffset"
 local customHeaderSpace = 0
+
+local borderStyles = {
+  bronze = { file = "Interface\\Tooltips\\UI-Tooltip-Border", color = { 0.68, 0.52, 0.34, 0.9 } },
+  silver = { file = "Interface\\DialogFrame\\UI-DialogBox-Border", color = { 1, 1, 1, 0.9 } },
+  gold = { file = "Interface\\DialogFrame\\UI-DialogBox-Gold-Border", color = { 1, 1, 1, 0.9 } },
+}
 
 local stockAppearance = {
   hideAllObjectivesHeader = false,
@@ -111,9 +122,33 @@ local function AddStockHeader(frame, controller, template, label, offset)
   header.Text:Show()
   local button = header.MinimizeButton
   button:SetScript("OnClick", function() controller:Click() end)
-  RestoreTextureSnap(header.Background)
+  local background = header.Background
+  if template == "ObjectiveTrackerContainerHeaderTemplate" then
+    local atlas = C_Texture.GetAtlasInfo("ui-questtracker-primary-objective-header")
+    local file = atlas and (atlas.file or atlas.filename)
+    if file then
+      -- Crop the uneven padding around the two trim lines, leaving room for their end caps.
+      local left, right = atlas.leftTexCoord, atlas.rightTexCoord
+      local span = right - left
+      background:SetTexture(file)
+      background:SetTexCoord(left + span * 0.025, right - span * 0.052,
+          atlas.topTexCoord, atlas.bottomTexCoord)
+    end
+  end
+  background:ClearAllPoints()
+  background:SetPoint("LEFT", header, "LEFT")
+  background:SetPoint("RIGHT", header, "RIGHT")
+  RestoreTextureSnap(background)
   RestoreTextureSnap(button:GetHighlightTexture())
   return header
+end
+
+local function GetBorderGeometry(frame, config)
+  local offset = math.max(-6, math.min(16, tonumber(config[borderOffsetSetting]) or 0))
+  local width = math.max(2, math.min(24, tonumber(config[borderWidthSetting]) or 12))
+  -- Leave room for two bottom corners across the width and one along the height.
+  local maxWidth = math.floor(math.min((frame:GetWidth() + 2 * offset - 1) / 2, frame:GetHeight() + offset - 1))
+  return math.min(width, math.max(1, maxWidth)), offset
 end
 
 local function KeepHeaderButtonsVisible(frame, main, section)
@@ -124,13 +159,22 @@ local function KeepHeaderButtonsVisible(frame, main, section)
     local scale = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
     local overflow = math.max(0, right - screenRight * scale)
     if overflow >= frame:GetWidth() - 20 then return end
-    if overflow == inset then return end
-    inset = overflow
+    local newInset = overflow
+    local config = tracker.DB()
+    if config[borderSetting] == true then
+      local width, offset = GetBorderGeometry(frame, config)
+      newInset = newInset + math.max(0, math.ceil(width / 2) - offset)
+    end
+    if newInset == inset then return end
+    inset = newInset
     main.MinimizeButton:SetPoint("RIGHT", main, "RIGHT", -1 - inset, 0)
     section.MinimizeButton:SetPoint("RIGHT", section, "RIGHT", 1 - inset, 0)
   end
   hooksecurefunc(frame, "SetPoint", Adjust)
   frame:HookScript("OnSizeChanged", Adjust)
+  if type(tracker.ApplyBackground) == "function" then
+    hooksecurefunc(tracker, "ApplyBackground", Adjust)
+  end
   Adjust()
 end
 
@@ -204,6 +248,79 @@ local function StyleCompletedRow(row, useStockColor)
   end
 end
 
+local function SkinCustomBorder(frame, header)
+  local holder, topLine = frame.bgHolder, frame.topLine
+  if not (holder and topLine and type(tracker.ApplyBackground) == "function") then return end
+
+  -- Parent the border to EUI's background holder so it inherits the hover fade.
+  local headerBackground = header.Background
+  local border, appliedStyle, appliedWidth, appliedOffset
+  local topLineAlpha = topLine:GetAlpha()
+  local function UpdateBorder()
+    local config = tracker.DB()
+    if config[borderSetting] ~= true then
+      if appliedOffset ~= nil then
+        border:Hide()
+        headerBackground:SetPoint("LEFT", header, "LEFT", 0, 0)
+        headerBackground:SetPoint("RIGHT", header, "RIGHT", 0, 0)
+        topLine:SetAlpha(topLineAlpha)
+        appliedOffset = nil
+      end
+      return
+    end
+
+    if not border then border = CreateFrame("Frame", nil, holder, "BackdropTemplate") end
+    local style = borderStyles[config[borderStyleSetting]] or borderStyles.bronze
+    local width, offset = GetBorderGeometry(frame, config)
+    if offset ~= appliedOffset or width ~= appliedWidth then
+      -- The side textures start directly below the hidden top corners.
+      border:SetPoint("TOPLEFT", holder, "TOPLEFT", -offset, width)
+      border:SetPoint("BOTTOMRIGHT", holder, "BOTTOMRIGHT", offset, -offset)
+    end
+    if offset ~= appliedOffset then
+      local overhang = math.max(0, offset) + 4
+      headerBackground:SetPoint("LEFT", header, "LEFT", -overhang, 0)
+      headerBackground:SetPoint("RIGHT", header, "RIGHT", overhang, 0)
+    end
+    if style ~= appliedStyle or width ~= appliedWidth then
+      border:SetBackdrop({ edgeFile = style.file, edgeSize = width })
+      border:SetBackdropBorderColor(unpack(style.color))
+      border.TopEdge:Hide()
+      border.TopLeftCorner:Hide()
+      border.TopRightCorner:Hide()
+    end
+    appliedStyle, appliedWidth, appliedOffset = style, width, offset
+    border:Show()
+    topLine:SetAlpha(0)
+  end
+  hooksecurefunc(tracker, "ApplyBackground", UpdateBorder)
+  frame:HookScript("OnSizeChanged", UpdateBorder)
+  UpdateBorder()
+end
+
+local function FadeQuestListBottom(scroll)
+  local gradient = CreateVector2D(0, 0)
+  local fadeLength = 0
+  scroll:SetFlattensRenderLayers(true)
+  scroll:SetAlphaGradient(0, gradient)
+  scroll:SetAlphaGradient(1, gradient)
+
+  local function UpdateFade()
+    local remaining = scroll:GetVerticalScrollRange() - scroll:GetVerticalScroll()
+    -- Taper the fade as the last rows come fully into view.
+    local length = math.max(0, math.min(24, scroll:GetHeight() / 4, remaining))
+    if length == fadeLength then return end
+    fadeLength = length
+    gradient:SetXY(0, length)
+    scroll:SetAlphaGradient(1, gradient)
+  end
+
+  scroll:HookScript("OnVerticalScroll", UpdateFade)
+  scroll:HookScript("OnScrollRangeChanged", UpdateFade)
+  scroll:HookScript("OnSizeChanged", UpdateFade)
+  UpdateFade()
+end
+
 local function SkinCustomFrame(frame)
   if not frame then return end
   local scroll, controller
@@ -220,10 +337,10 @@ local function SkinCustomFrame(frame)
   -- rows 10 units below the 26-unit Quests header.
   local originalHeaderHeight = controller:GetHeight()
   local sectionOffset = 38
-  local contentOffset = sectionOffset + 26 + 10
-  customHeaderSpace = contentOffset - originalHeaderHeight
+  local separateContentOffset = sectionOffset + 26 + 10
   local main = AddStockHeader(frame, controller, "ObjectiveTrackerContainerHeaderTemplate",
       TRACKER_ALL_OBJECTIVES, 0)
+  SkinCustomBorder(frame, main)
   local section = AddStockHeader(frame, controller, "ObjectiveTrackerModuleHeaderTemplate",
       TRACKER_HEADER_QUESTS, sectionOffset)
   KeepHeaderButtonsVisible(frame, main, section)
@@ -274,7 +391,6 @@ local function SkinCustomFrame(frame)
   UpdateHeaderFont()
 
   local _, relative, relativePoint, left = scroll:GetPoint(1)
-  scroll:SetPoint("TOPLEFT", relative, relativePoint, left, -contentOffset)
   local showWidgetTooltip = eui.ShowWidgetTooltip
   eui.ShowWidgetTooltip = function(owner, label, ...)
     if owner and owner.GetParent and (label == SUPER_TRACK_QUEST or label == STOP_SUPER_TRACK_QUEST) then
@@ -284,22 +400,32 @@ local function SkinCustomFrame(frame)
     return showWidgetTooltip(owner, label, ...)
   end
 
-  local wasCollapsed
-  local function SetCollapsedArt()
+  local contentOffset, wasMerged, wasCollapsed
+  local function UpdateHeaders()
+    local merged = tracker.Cfg(mergeHeadersSetting) == true
     local collapsed = controller.toggle:GetText() == "+"
+    if merged == wasMerged and collapsed == wasCollapsed then return end
+    if merged ~= wasMerged then
+      wasMerged = merged
+      main.Text:SetText(merged and TRACKER_HEADER_QUESTS or TRACKER_ALL_OBJECTIVES)
+      contentOffset = merged and sectionOffset or separateContentOffset
+      customHeaderSpace = contentOffset - originalHeaderHeight
+      scroll:SetPoint("TOPLEFT", relative, relativePoint, left, -contentOffset)
+    end
+    section:SetShown(not merged and not collapsed)
     if collapsed == wasCollapsed then return end
     wasCollapsed = collapsed
     main:SetCollapsed(collapsed)
     if SetCollapsedMinus then SetCollapsedMinus(collapsed) end
-    section:SetShown(not collapsed)
     for _, header in ipairs({ main, section }) do
       local button = header.MinimizeButton
       RestoreTextureSnap(button:GetNormalTexture())
       RestoreTextureSnap(button:GetPushedTexture())
     end
   end
-  hooksecurefunc(controller.toggle, "SetText", SetCollapsedArt)
-  SetCollapsedArt()
+  hooksecurefunc(controller.toggle, "SetText", UpdateHeaders)
+  UpdateHeaders()
+  FadeQuestListBottom(scroll)
 
   local queued, applyingHeight = false, false
   local zoneRows = {}
@@ -357,6 +483,16 @@ local function SkinCustomFrame(frame)
 end
 
 local function SkinCustomTracker()
+  local defaults = namespace.QT_DEFAULTS
+  local config = defaults and defaults.profile and defaults.profile.questTracker
+  if config then
+    config[mergeHeadersSetting] = false
+    config[borderSetting] = false
+    config[borderStyleSetting] = "bronze"
+    config[borderWidthSetting] = 12
+    config[borderOffsetSetting] = 0
+  end
+
   local getFont = tracker.GetFont
   tracker.GetFont = function()
     local selected = tracker.Cfg("font")

@@ -16,3 +16,14 @@ Install the addon and enable **EllesmereUI Quest Tracker**. The skin applies aut
 For a manual install, unzip the release into `_forever_/Interface/AddOns` so that `ImmersiveQuestTracker` is directly inside `AddOns`. Restart the game after installing.
 
 Built for **WoW Forever 1.60.1**. Requires **EllesmereUI** with its Quest Tracker module enabled. Developed against EllesmereUI 9.8.6. [EllesmereUI on CurseForge](https://www.curseforge.com/wow/addons/ellesmereui)
+
+### Custom tracker appearance
+
+With the [EllesmereUI settings patch](scripts/EllesmereUI-9.8.6-QuestTrackerConfig.patch) applied, open **EllesmereUI → Quest Tracker → Immersive Quest Tracker Skin** with **Custom Quest Tracker** enabled.
+
+- **Merge Quest Headers** shows a single **Quests** header with the quest count and collapse button.
+- **Immersive Border** frames the sides and bottom. The main header supplies the top trim and extends slightly past the sides. Choose **Bronze Tooltip**, **Silver Dialog**, or **Gold Dialog**, then adjust the edge width and offset in UI units. Positive offsets move the border outward and negative offsets move it inward.
+
+Each toggle is off by default and saved per EUI profile.
+
+From the game's `Interface/AddOns` directory, run `git apply --ignore-space-change <path-to-patch>` and reload the UI. The patch applies to clean EllesmereUI 9.8.6 and 9.8.8 installs. An EllesmereUI update can overwrite the patched settings file.
