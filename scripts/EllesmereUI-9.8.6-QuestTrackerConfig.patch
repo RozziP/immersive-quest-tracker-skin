@@ -1,0 +1,60 @@
+diff --git a/EllesmereUIOptions/EUI_QuestTracker_Options.lua b/EllesmereUIOptions/EUI_QuestTracker_Options.lua
+--- a/EllesmereUIOptions/EUI_QuestTracker_Options.lua
++++ b/EllesmereUIOptions/EUI_QuestTracker_Options.lua
+@@ -288,5 +288,55 @@
+             y = y - 10
+         end
+-
++
++        local mergeHeadersKey = "immersiveQuestTrackerMergeHeaders"
++        if CUSTOM and Cfg(mergeHeadersKey) ~= nil then
++            _, h = W:SectionHeader(parent, "Immersive Quest Tracker Skin", y)
++            y = y - h
++
++            _, h = W:Toggle(parent, "Merge Quest Headers", y,
++                function() return Cfg(mergeHeadersKey) == true end,
++                function(v)
++                    Set(mergeHeadersKey, v)
++                    EQT.RefreshCustom()
++                end,
++                "Shows one Quests header with the quest count and collapse button.")
++            y = y - h
++
++            local borderKey = "immersiveQuestTrackerBorder"
++            local styleKey = "immersiveQuestTrackerBorderStyle"
++            local widthKey = "immersiveQuestTrackerBorderWidth"
++            local offsetKey = "immersiveQuestTrackerBorderOffset"
++            local function BorderOff() return Cfg(borderKey) ~= true end
++            local function SetBorder(key, value)
++                Set(key, value)
++                EQT.ApplyBackground()
++            end
++            _, h = W:DualRow(parent, y,
++                { type="toggle", text="Immersive Border",
++                  tooltip="Frames the sides and bottom of the quest tracker and extends the header trim past both sides.",
++                  getValue=function() return not BorderOff() end,
++                  setValue=function(v) SetBorder(borderKey, v); EllesmereUI:RefreshPage() end },
++                { type="dropdown", text="Border Style",
++                  values={ bronze="Bronze Tooltip", silver="Silver Dialog", gold="Gold Dialog" },
++                  order={ "bronze", "silver", "gold" },
++                  disabled=BorderOff, disabledTooltip="Immersive Border",
++                  getValue=function() return Cfg(styleKey) or "bronze" end,
++                  setValue=function(v) SetBorder(styleKey, v) end })
++            y = y - h
++
++            _, h = W:DualRow(parent, y,
++                { type="slider", text="Border Width", min=2, max=24, step=1,
++                  tooltip="Sets the edge size in UI units. The border fits the available height when the tracker is collapsed.",
++                  disabled=BorderOff, disabledTooltip="Immersive Border",
++                  getValue=function() return Cfg(widthKey) or 12 end,
++                  setValue=function(v) SetBorder(widthKey, v) end },
++                { type="slider", text="Border Offset", min=-6, max=16, step=1,
++                  tooltip="Moves the sides and bottom. Positive values move the border outward and negative values move it inward.",
++                  disabled=BorderOff, disabledTooltip="Immersive Border",
++                  getValue=function() return Cfg(offsetKey) or 0 end,
++                  setValue=function(v) SetBorder(offsetKey, v) end })
++            y = y - h - 10
++        end
++
+         -- -- DISPLAY ---------------------------------------------------------
+         _, h = W:SectionHeader(parent, "DISPLAY", y); y = y - h
