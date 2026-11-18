@@ -1,5 +1,7 @@
 # Immersive Quest Tracker Skin
 
+<p><img src="branding/icon.png" width="96" height="96" alt="Immersive Quest Tracker Skin icon"></p>
+
 Give EllesmereUI’s quest tracker the stock WoW Forever look, with Blizzard-style headers, quest icons, and a dark bronze Quest Details window.
 
 ## What it does
