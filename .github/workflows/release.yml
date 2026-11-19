@@ -1,0 +1,47 @@
+name: Release WoW Forever addon
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Package and publish addon
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = $env:GITHUB_REF_NAME
+          if ($tag -cnotmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw "Expected a stable vMAJOR.MINOR.PATCH tag: $tag" }
+          $version = $tag.Substring(1)
+          $config = Get-Content ./scripts/curseforge.json -Raw | ConvertFrom-Json
+          $folder = $config.addonFolder
+          $source = Join-Path (Join-Path $PWD 'addon') $folder
+          $toc = Join-Path $source "$folder.toc"
+          $text = Get-Content -LiteralPath $toc -Raw
+          $tocVersion = [regex]::Match($text, '(?m)^## Version:\s*([^\r\n]+)').Groups[1].Value.Trim()
+          if ($tocVersion -cne $version) { throw "TOC version $tocVersion does not match $tag." }
+          if ($text -cnotmatch '(?m)^## Interface:\s*16\d{3}\s*$') { throw 'Expected a WoW Forever interface number.' }
+          $asset = Join-Path $env:RUNNER_TEMP "$($config.assetPrefix)-$version-forever.zip"
+          Compress-Archive -LiteralPath $source -DestinationPath $asset
+          gh release create $tag $asset --verify-tag --generate-notes
+          if ($LASTEXITCODE -ne 0) { throw "Could not create GitHub release $tag." }
+
+  curseforge:
+    needs: release
+    uses: ./.github/workflows/publish-curseforge.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets:
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
