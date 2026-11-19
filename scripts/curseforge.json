@@ -1,0 +1,7 @@
+{
+  "repository": "RozziP/immersive-quest-tracker-skin",
+  "assetPrefix": "ImmersiveQuestTrackerSkin",
+  "projectId": 1809274,
+  "addonFolder": "ImmersiveQuestTracker",
+  "requiredDependency": "ellesmereui"
+}
