@@ -10,9 +10,9 @@ local borderOffsetSetting = "immersiveQuestTrackerBorderOffset"
 local customHeaderSpace = 0
 
 local borderStyles = {
-  bronze = { file = "Interface\\Tooltips\\UI-Tooltip-Border", color = { 0.68, 0.52, 0.34, 0.9 } },
-  silver = { file = "Interface\\DialogFrame\\UI-DialogBox-Border", color = { 1, 1, 1, 0.9 } },
-  gold = { file = "Interface\\DialogFrame\\UI-DialogBox-Gold-Border", color = { 1, 1, 1, 0.9 } },
+  bronze = { file = "Interface\\Tooltips\\UI-Tooltip-Border", color = { 0.68, 0.52, 0.34, 1 } },
+  silver = { file = "Interface\\DialogFrame\\UI-DialogBox-Border", color = { 1, 1, 1, 1 } },
+  gold = { file = "Interface\\DialogFrame\\UI-DialogBox-Gold-Border", color = { 1, 1, 1, 1 } },
 }
 
 local stockAppearance = {
@@ -252,7 +252,7 @@ local function SkinCustomBorder(frame, header)
   local holder, topLine = frame.bgHolder, frame.topLine
   if not (holder and topLine and type(tracker.ApplyBackground) == "function") then return end
 
-  -- Parent the border to EUI's background holder so it inherits the hover fade.
+  -- Follow the tracker's visibility like the headers, independently of the background hover fade.
   local headerBackground = header.Background
   local border, appliedStyle, appliedWidth, appliedOffset
   local topLineAlpha = topLine:GetAlpha()
@@ -269,7 +269,7 @@ local function SkinCustomBorder(frame, header)
       return
     end
 
-    if not border then border = CreateFrame("Frame", nil, holder, "BackdropTemplate") end
+    if not border then border = CreateFrame("Frame", nil, frame, "BackdropTemplate") end
     local style = borderStyles[config[borderStyleSetting]] or borderStyles.bronze
     local width, offset = GetBorderGeometry(frame, config)
     if offset ~= appliedOffset or width ~= appliedWidth then
@@ -457,19 +457,25 @@ local function SkinCustomFrame(frame)
         StyleCompletedRow(row, useStockCompleted)
         local button = row.focus
         if button and button:IsShown() and row:IsShown() then
+          -- The scroll frame clips its children. Keep the entire 32-unit
+          -- marker inside it even when EUI changes the title indent.
+          local _, _, _, rowX = row:GetPoint(1)
+          local buttonX = math.max(-7, 26 - (rowX or 27))
           local _, _, _, x, y = button:GetPoint(1)
-          if x ~= -7 or y ~= 5 then
-            button:SetSize(20, 20)
-            button.ring:SetSize(32, 32)
-            button.icon:SetSize(32, 32)
+          button:SetSize(20, 20)
+          button.ring:SetSize(32, 32)
+          if x ~= buttonX or y ~= 5 then
             button:ClearAllPoints()
-            button:SetPoint("TOPRIGHT", row, "TOPLEFT", -7, 5)
+            button:SetPoint("TOPRIGHT", row, "TOPLEFT", buttonX, 5)
           end
           if button.ring:GetAtlas() == "UI-QuestIcon-TurnIn-Normal" then
             button.ring:SetAtlas(button.lastFocused and "UI-QuestPoi-QuestNumber-SuperTracked"
                 or "UI-QuestPoi-QuestNumber")
             button.icon:SetAtlas("UI-QuestIcon-TurnIn-Normal", true)
             button.icon:Show()
+          elseif not button.lastComplete then
+            -- The progress glyph is a separate small atlas, not 32-unit art.
+            button.icon:SetSize(15, 15)
           end
           button.glow:SetAlpha(0)
           button.hl:SetAlpha(0)

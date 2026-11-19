@@ -2,7 +2,7 @@
 ## Title: Immersive Quest Tracker Skin
 ## Notes: Stock WoW Forever objective tracker appearance for EllesmereUI.
 ## IconTexture: Interface\AddOns\ImmersiveQuestTracker\Icon.tga
-## Version: 0.3.8
+## Version: 0.3.9
 ## Dependencies: EllesmereUIQuestTracker
 
 ImmersiveQuestTracker.lua
