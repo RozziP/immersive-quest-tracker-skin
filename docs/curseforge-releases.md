@@ -10,7 +10,7 @@ The project ID, stable installed folder, release asset prefix, and dependency ar
 
 ## Publishing
 
-Publish a stable GitHub release with a `vMAJOR.MINOR.PATCH` tag, release notes, and the matching `-forever.zip` attached. Human-published releases start the workflow automatically. If a future packaging workflow creates releases with GitHub's built-in `GITHUB_TOKEN`, call this reusable workflow explicitly after publishing; those releases do not start another release-event workflow.
+Update the addon's TOC version, commit the release, and push a stable `vMAJOR.MINOR.PATCH` tag pointing to that commit. The release workflow packages the tagged addon, creates a GitHub release with generated notes, and calls the CurseForge uploader. Review the generated notes and the Actions run. The tag and TOC version must match. Human-published stable GitHub releases with the matching ZIP and notes also trigger the uploader.
 
 To upload an existing release, use **Actions > Publish to CurseForge > Run workflow** on `main` and enter its exact tag. Check the CurseForge Files page first so you do not upload a duplicate. After a timeout or failed upload, check the Files page before retrying: CurseForge may have accepted the file before the response was lost. The uploader deliberately does not retry POST requests. Concurrent uploads of the same tag are serialized, but completed uploads are not automatically deduplicated.
 
